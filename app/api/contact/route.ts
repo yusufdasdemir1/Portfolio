@@ -63,6 +63,17 @@ function toBase64(value: string) {
   return Buffer.from(value, 'utf8').toString('base64');
 }
 
+
+function extractEmailAddress(value: string) {
+  const match = value.match(/<([^>]+)>/);
+
+  if (match?.[1]) {
+    return match[1].trim();
+  }
+
+  return value.trim();
+}
+
 function sendCommand(socket: tls.TLSSocket, command: string) {
   socket.write(`${command}\r\n`);
 }
@@ -120,21 +131,28 @@ function assertStatus(response: string, expectedCodes: number[]) {
   const code = Number(lastLine.slice(0, 3));
 
   if (!expectedCodes.includes(code)) {
+    if (code == 535) {
+      throw new Error('SMTP authentication failed. Use your Gmail address and a 16-digit App Password.');
+    }
+
     throw new Error(`SMTP error: ${lastLine || response}`);
   }
 }
 
 async function sendSmtpMail(values: ContactFormValues) {
-  const host = process.env.SMTP_HOST ?? 'smtp.gmail.com';
+  const host = (process.env.SMTP_HOST ?? 'smtp.gmail.com').trim();
   const port = Number(process.env.SMTP_PORT ?? 465);
-  const user = process.env.SMTP_USER;
-  const pass = process.env.SMTP_PASS;
-  const toEmail = process.env.CONTACT_TO_EMAIL;
-  const fromEmail = process.env.CONTACT_FROM_EMAIL;
+  const user = (process.env.SMTP_USER ?? '').trim();
+  const pass = (process.env.SMTP_PASS ?? '').replaceAll(' ', '').trim();
+  const toEmail = (process.env.CONTACT_TO_EMAIL ?? '').trim();
+  const fromEmail = (process.env.CONTACT_FROM_EMAIL ?? '').trim();
 
   if (!user || !pass || !toEmail || !fromEmail) {
     throw new Error('Server is not configured for email delivery.');
   }
+
+  const mailFromAddress = extractEmailAddress(fromEmail);
+  const rcptToAddress = extractEmailAddress(toEmail);
 
   const socket = tls.connect({
     host,
@@ -165,10 +183,10 @@ async function sendSmtpMail(values: ContactFormValues) {
     sendCommand(socket, toBase64(pass));
     assertStatus(await waitForResponse(socket), [235]);
 
-    sendCommand(socket, `MAIL FROM:<${fromEmail}>`);
+    sendCommand(socket, `MAIL FROM:<${mailFromAddress}>`);
     assertStatus(await waitForResponse(socket), [250]);
 
-    sendCommand(socket, `RCPT TO:<${toEmail}>`);
+    sendCommand(socket, `RCPT TO:<${rcptToAddress}>`);
     assertStatus(await waitForResponse(socket), [250, 251]);
 
     sendCommand(socket, 'DATA');
