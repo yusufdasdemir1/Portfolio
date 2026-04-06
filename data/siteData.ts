@@ -1,91 +1,71 @@
 export const siteConfig = {
-  name: 'Alex Morgan',
-  role: 'Software Engineering Student | Backend Developer',
-  email: 'alex.morgan.dev@email.com',
+  name: 'Yusuf Daşdemir',
+  role: 'Backend Developer & Data Analyst',
+  email: 'yusufdasdemircs@gmail.com',
   tagline:
-    'I design and build reliable backend systems, practical APIs, and data-driven software with a focus on performance, maintainability, and real-world impact.',
+    'I build scalable backend systems and data-driven solutions with a focus on performance, automation, and maintainable architecture.',
   bio: [
-    'I am a Software Engineering student focused on backend development, API design, and data processing workflows. My work is centered on building scalable software systems that stay clean under real operational constraints.',
-    'I enjoy translating product needs into robust technical architecture, with a strong preference for Python ecosystems, structured testing, and clear documentation. My long-term goal is to contribute to high-impact backend products where quality and reliability matter.'
+    'I am Yusuf Daşdemir, a 3rd-year Software Engineering student at Haliç University. I focus on backend development and data-driven systems with Python, building REST APIs using FastAPI and Django while working with pandas, NumPy, and matplotlib for analysis workflows.',
+    'I develop automation and workflow-based systems with Temporal and design scalable data pipelines with asynchronous processes. I also work with Docker, Git, PostgreSQL, and Python web scraping tools such as Selenium and BeautifulSoup. My goal is to become a software engineer who builds scalable, high-performance backend systems.'
   ],
-  location: 'United States (Placeholder)',
+  location: 'Istanbul, Türkiye',
   cvLink: '/cv-placeholder.pdf',
   socialLinks: {
-    github: 'https://github.com/your-username',
-    linkedin: 'https://linkedin.com/in/your-profile'
+    github: 'https://github.com/yusufdasdemir1',
+    linkedin: 'https://www.linkedin.com/in/yusuf-daşdemir?utm_source=share_via&utm_content=profile&utm_medium=member_ios'
   }
 };
 
 export const skills = [
   {
     category: 'Programming Languages',
-    items: ['Python', 'TypeScript', 'SQL', 'Bash']
+    items: ['Python (Advanced)', 'Java (Intermediate)', 'SQL']
   },
   {
     category: 'Backend',
-    items: ['FastAPI', 'Django', 'Flask', 'REST API Design', 'Authentication & Authorization']
+    items: ['FastAPI', 'Django', 'REST API Development', 'Asynchronous Processing', 'Temporal']
+  },
+  {
+    category: 'Data & Automation',
+    items: ['Pandas', 'NumPy', 'Matplotlib', 'Data Validation', 'Workflow Automation']
+  },
+  {
+    category: 'Web Scraping',
+    items: ['Selenium', 'BeautifulSoup']
   },
   {
     category: 'Databases',
-    items: ['PostgreSQL', 'MySQL', 'SQLite', 'Query Optimization']
+    items: ['PostgreSQL', 'Database Design']
   },
   {
     category: 'Tools & Platforms',
-    items: ['Git', 'GitHub', 'Docker', 'Linux', 'CI/CD Basics']
-  },
-  {
-    category: 'Other Technical Skills',
-    items: ['Pandas', 'Data Processing Pipelines', 'Automation Scripts', 'System Design Fundamentals']
+    items: ['Docker', 'Git', 'GitHub', 'Bitbucket']
   }
 ];
 
 export const projects = [
   {
-    title: 'API Monitoring Platform',
+    title: 'LuckOfWheel',
     description:
-      'A backend service for tracking endpoint health, response latency, and uptime trends with alert-ready metrics and historical logs.',
-    tech: ['Python', 'FastAPI', 'PostgreSQL', 'Docker'],
-    github: 'https://github.com/your-username/api-monitoring-platform',
-    demo: 'https://demo.example.com/api-monitoring'
-  },
-  {
-    title: 'Student Data Processing Engine',
-    description:
-      'Automated data ingestion and cleaning pipeline that processes large student records and generates summary reports for analytics dashboards.',
-    tech: ['Python', 'Pandas', 'SQL', 'CLI Automation'],
-    github: 'https://github.com/your-username/student-data-engine',
+      'An appointment and engagement platform for hair salons that combines booking workflows with a spin-wheel reward feature to improve customer experience.',
+    tech: ['Python', 'Django', 'PostgreSQL'],
+    github: '',
     demo: ''
   },
   {
-    title: 'Task Management Backend',
+    title: 'Gym Membership Tracking System',
     description:
-      'Production-style backend for collaborative task workflows with JWT auth, role-based permissions, and modular service architecture.',
-    tech: ['Django', 'Django REST Framework', 'PostgreSQL'],
-    github: 'https://github.com/your-username/task-management-backend',
-    demo: 'https://demo.example.com/task-backend'
-  },
-  {
-    title: 'Inventory Sync Service',
-    description:
-      'Event-based synchronization service that keeps distributed inventory records consistent across multiple systems.',
-    tech: ['Python', 'Flask', 'Redis', 'Docker'],
-    github: 'https://github.com/your-username/inventory-sync-service',
+      'A membership registration and follow-up system for gyms to manage member records, subscription status, and operational tracking in one place.',
+    tech: ['Python', 'FastAPI', 'PostgreSQL'],
+    github: '',
     demo: ''
   },
   {
-    title: 'Recruiter Outreach Tracker',
+    title: 'Hourly Data Validation Automation',
     description:
-      'A lightweight full-stack project that helps track applications, recruiter conversations, and interview progress in one place.',
-    tech: ['TypeScript', 'Next.js', 'PostgreSQL'],
-    github: 'https://github.com/your-username/recruiter-outreach-tracker',
-    demo: 'https://demo.example.com/outreach-tracker'
-  },
-  {
-    title: 'Log Analysis Toolkit',
-    description:
-      'Toolkit for parsing backend logs and surfacing failure patterns, error frequency, and anomaly indicators for debugging workflows.',
-    tech: ['Python', 'Pandas', 'Regex', 'Data Visualization'],
-    github: 'https://github.com/your-username/log-analysis-toolkit',
+      'A table-based data validation solution that detects missing hourly records and automates control checks to improve data reliability.',
+    tech: ['Python', 'Pandas', 'Automation'],
+    github: '',
     demo: ''
   }
 ];
@@ -93,23 +73,16 @@ export const projects = [
 export const timeline = [
   {
     title: 'B.Sc. in Software Engineering',
-    organization: 'Your University Name (Placeholder)',
-    period: '2022 - Present',
+    organization: 'Haliç University',
+    period: '2023 - Present (3rd Year)',
     details:
-      'Focused on software architecture, algorithms, databases, distributed systems, and backend engineering practices.'
+      'Currently studying software engineering with a practical focus on backend development, databases, and scalable software systems.'
   },
   {
-    title: 'Backend Development Intern (Optional Placeholder)',
-    organization: 'Tech Company / Startup',
-    period: 'Summer 2025',
+    title: 'Backend Developer Intern',
+    organization: 'Pure Technology',
+    period: 'February 2024 - Present',
     details:
-      'Contributed to API development, endpoint testing, and data ingestion workflows while collaborating with senior engineers.'
-  },
-  {
-    title: 'Freelance Software Projects',
-    organization: 'Independent',
-    period: '2024 - Present',
-    details:
-      'Delivered backend-focused systems for small clients, including automation scripts and internal API tools.'
+      'Contributing to backend development tasks, API-focused workflows, and data-related engineering processes as an ongoing intern.'
   }
 ];
