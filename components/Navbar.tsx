@@ -40,18 +40,20 @@ export function Navbar() {
   }, [observerOptions]);
 
   const linkClass = (id: string) =>
-    `rounded-full px-3 py-2 text-sm transition ${
-      activeSection === id ? 'bg-slate-800 text-slate-50' : 'text-slate-300 hover:bg-slate-800/70 hover:text-slate-50'
+    `rounded-full px-4 py-2.5 text-base font-medium tracking-wide transition-all duration-300 ${
+      activeSection === id
+        ? 'bg-blue-500/90 text-white shadow-lg shadow-blue-500/30'
+        : 'text-slate-200 hover:bg-blue-500/25 hover:text-blue-100 hover:shadow-md hover:shadow-blue-500/20'
     }`;
 
   return (
     <header className="fixed inset-x-0 top-0 z-50 border-b border-slate-800/70 bg-slate-950/80 backdrop-blur-xl">
-      <nav className="section-shell flex h-16 items-center justify-between" aria-label="Main navigation">
+      <nav className="section-shell flex h-[4.5rem] items-center justify-between py-1" aria-label="Main navigation">
         <Link href="#home" className="text-sm font-semibold tracking-wide text-slate-100">
           {siteConfig.name}
         </Link>
 
-        <div className="hidden items-center gap-2 md:flex">
+        <div className="hidden items-center gap-3 md:flex">
           {navItems.map((item) => (
             <a key={item.id} href={`#${item.id}`} className={linkClass(item.id)}>
               {item.label}
