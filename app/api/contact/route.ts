@@ -1,3 +1,4 @@
+import net from 'node:net';
 import tls from 'node:tls';
 
 import { NextRequest, NextResponse } from 'next/server';
@@ -13,6 +14,18 @@ import {
 type RequestWindow = {
   count: number;
   resetAt: number;
+};
+
+type SocketLike = net.Socket | tls.TLSSocket;
+
+type MailConfig = {
+  host: string;
+  port: number;
+  secure: boolean;
+  user: string;
+  pass: string;
+  toEmail: string;
+  fromEmail: string;
 };
 
 const requestLog = new Map<string, RequestWindow>();
@@ -59,47 +72,93 @@ function escapeHtml(input: string) {
     .replaceAll("'", '&#039;');
 }
 
-function toBase64(value: string) {
-  return Buffer.from(value, 'utf8').toString('base64');
-}
+function parseMailConfig(): MailConfig {
+  const host = (process.env.SMTP_HOST ?? 'smtp.gmail.com').trim();
+  const port = Number.parseInt((process.env.SMTP_PORT ?? '465').trim(), 10);
+  const user = (process.env.SMTP_USER ?? '').trim();
+  const pass = (process.env.SMTP_PASS ?? '').trim();
+  const toEmail = (process.env.CONTACT_TO_EMAIL ?? '').trim();
+  const fromEmail = (process.env.CONTACT_FROM_EMAIL ?? user).trim();
 
-
-function extractEmailAddress(value: string) {
-  const match = value.match(/<([^>]+)>/);
-
-  if (match?.[1]) {
-    return match[1].trim();
+  if (!Number.isFinite(port) || port <= 0) {
+    throw new Error('SMTP_PORT must be a valid number.');
   }
 
-  return value.trim();
+  if (!user || !pass || !toEmail || !fromEmail) {
+    throw new Error('Email is not configured. Set SMTP_USER, SMTP_PASS, CONTACT_TO_EMAIL, and CONTACT_FROM_EMAIL.');
+  }
+
+  return {
+    host,
+    port,
+    secure: port === 465,
+    user,
+    pass,
+    toEmail,
+    fromEmail
+  };
 }
 
-function sendCommand(socket: tls.TLSSocket, command: string) {
+function createSocket(config: MailConfig) {
+  return new Promise<SocketLike>((resolve, reject) => {
+    const onError = (error: Error) => reject(error);
+
+    if (config.secure) {
+      const secureSocket = tls.connect({
+        host: config.host,
+        port: config.port,
+        servername: config.host,
+        minVersion: 'TLSv1.2'
+      });
+
+      secureSocket.once('secureConnect', () => {
+        secureSocket.off('error', onError);
+        resolve(secureSocket);
+      });
+      secureSocket.once('error', onError);
+      return;
+    }
+
+    const plainSocket = net.connect({ host: config.host, port: config.port });
+
+    plainSocket.once('connect', () => {
+      plainSocket.off('error', onError);
+      resolve(plainSocket);
+    });
+    plainSocket.once('error', onError);
+  });
+}
+
+function sendCommand(socket: SocketLike, command: string) {
   socket.write(`${command}\r\n`);
 }
 
-function sanitizeSmtpText(input: string) {
-  return input
-    .replaceAll('\r\n', '\n')
-    .replaceAll('\r', '\n')
-    .replace(/\n\./g, '\n..');
+function getLastLine(response: string) {
+  const lines = response.split(/\r?\n/).filter(Boolean);
+  return lines.at(-1) ?? '';
 }
 
-function waitForResponse(socket: tls.TLSSocket) {
+function getLastStatusCode(response: string) {
+  return Number(getLastLine(response).slice(0, 3));
+}
+
+function waitForResponse(socket: SocketLike, timeoutMs = 10_000) {
   return new Promise<string>((resolve, reject) => {
-    const chunks: string[] = [];
+    let buffer = '';
 
-    const onData = (buffer: Buffer) => {
-      const text = buffer.toString('utf8');
-      chunks.push(text);
+    const timer = setTimeout(() => {
+      cleanup();
+      reject(new Error('SMTP server timed out while waiting for a response.'));
+    }, timeoutMs);
 
-      const merged = chunks.join('');
-      const lines = merged.split(/\r?\n/).filter(Boolean);
+    const onData = (chunk: Buffer | string) => {
+      buffer += chunk.toString();
+      const lines = buffer.split(/\r?\n/).filter(Boolean);
       const lastLine = lines.at(-1);
 
       if (lastLine && /^\d{3} /.test(lastLine)) {
         cleanup();
-        resolve(merged);
+        resolve(buffer);
       }
     };
 
@@ -114,6 +173,7 @@ function waitForResponse(socket: tls.TLSSocket) {
     };
 
     const cleanup = () => {
+      clearTimeout(timer);
       socket.off('data', onData);
       socket.off('error', onError);
       socket.off('close', onClose);
@@ -125,89 +185,96 @@ function waitForResponse(socket: tls.TLSSocket) {
   });
 }
 
-function getLastStatusCode(response: string) {
-  const lines = response.split(/\r?\n/).filter(Boolean);
-  const lastLine = lines.at(-1) ?? '';
-
-  return Number(lastLine.slice(0, 3));
-}
-
 function assertStatus(response: string, expectedCodes: number[]) {
-  const lines = response.split(/\r?\n/).filter(Boolean);
-  const lastLine = lines.at(-1) ?? '';
-  const code = Number(lastLine.slice(0, 3));
+  const code = getLastStatusCode(response);
 
   if (!expectedCodes.includes(code)) {
-    if (code === 535) {
-      throw new Error('SMTP authentication failed. Use your Gmail address and a 16-digit App Password.');
-    }
-
-    throw new Error(`SMTP error: ${lastLine || response}`);
+    throw new Error(`SMTP error ${code}: ${getLastLine(response)}`);
   }
 }
 
-async function authenticateSmtp(socket: tls.TLSSocket, user: string, pass: string) {
-  const plainToken = toBase64(`\u0000${user}\u0000${pass}`);
-
-  sendCommand(socket, `AUTH PLAIN ${plainToken}`);
-  const plainResponse = await waitForResponse(socket);
-  const plainCode = getLastStatusCode(plainResponse);
-
-  if (plainCode === 235) {
-    return;
-  }
-
-  sendCommand(socket, 'AUTH LOGIN');
-  assertStatus(await waitForResponse(socket), [334]);
-
-  sendCommand(socket, toBase64(user));
-  assertStatus(await waitForResponse(socket), [334]);
-
-  sendCommand(socket, toBase64(pass));
-  assertStatus(await waitForResponse(socket), [235]);
+function toBase64(value: string) {
+  return Buffer.from(value, 'utf8').toString('base64');
 }
 
-async function sendSmtpMail(values: ContactFormValues) {
-  const host = (process.env.SMTP_HOST ?? 'smtp.gmail.com').trim();
-  const port = Number(process.env.SMTP_PORT ?? 465);
-  const user = (process.env.SMTP_USER ?? '').trim();
-  const pass = (process.env.SMTP_PASS ?? '').replaceAll(' ', '').trim();
-  const toEmail = (process.env.CONTACT_TO_EMAIL ?? '').trim();
-  const fromEmail = (process.env.CONTACT_FROM_EMAIL ?? '').trim();
+async function upgradeToTls(socket: net.Socket, config: MailConfig) {
+  sendCommand(socket, `EHLO ${config.host}`);
+  const ehloResponse = await waitForResponse(socket);
+  assertStatus(ehloResponse, [250]);
 
-  if (!user || !pass || !toEmail || !fromEmail) {
-    throw new Error('Server is not configured for email delivery.');
+  if (!/\bSTARTTLS\b/i.test(ehloResponse)) {
+    throw new Error('SMTP server does not support STARTTLS on this port.');
   }
 
-  const mailFromAddress = extractEmailAddress(fromEmail);
-  const rcptToAddress = extractEmailAddress(toEmail);
+  sendCommand(socket, 'STARTTLS');
+  assertStatus(await waitForResponse(socket), [220]);
 
-  const socket = tls.connect({
-    host,
-    port,
-    servername: host,
+  const secureSocket = tls.connect({
+    socket,
+    servername: config.host,
     minVersion: 'TLSv1.2'
   });
 
-  socket.setEncoding('utf8');
-
   await new Promise<void>((resolve, reject) => {
-    socket.once('secureConnect', () => resolve());
-    socket.once('error', reject);
+    secureSocket.once('secureConnect', resolve);
+    secureSocket.once('error', reject);
   });
+
+  sendCommand(secureSocket, `EHLO ${config.host}`);
+  assertStatus(await waitForResponse(secureSocket), [250]);
+
+  return secureSocket;
+}
+
+async function authenticateSmtp(socket: SocketLike, config: MailConfig) {
+  sendCommand(socket, 'AUTH LOGIN');
+  assertStatus(await waitForResponse(socket), [334]);
+
+  sendCommand(socket, toBase64(config.user));
+  assertStatus(await waitForResponse(socket), [334]);
+
+  sendCommand(socket, toBase64(config.pass));
+  const authResponse = await waitForResponse(socket);
+  const authStatus = getLastStatusCode(authResponse);
+
+  if (authStatus !== 235) {
+    if (authStatus === 534 || authStatus === 535) {
+      throw new Error('SMTP authentication failed. Use your Gmail address and a 16-digit App Password.');
+    }
+
+    throw new Error(`SMTP authentication failed: ${getLastLine(authResponse)}`);
+  }
+}
+
+function sanitizeSmtpText(input: string) {
+  return input
+    .replaceAll('\r\n', '\n')
+    .replaceAll('\r', '\n')
+    .replace(/\n\./g, '\n..');
+}
+
+async function sendContactMail(values: ContactFormValues) {
+  const config = parseMailConfig();
+  const rawSocket = await createSocket(config);
+
+  let socket: SocketLike = rawSocket;
 
   try {
     assertStatus(await waitForResponse(socket), [220]);
 
-    sendCommand(socket, `EHLO ${host}`);
+    if (config.secure) {
+      sendCommand(socket, `EHLO ${config.host}`);
+      assertStatus(await waitForResponse(socket), [250]);
+    } else {
+      socket = await upgradeToTls(rawSocket as net.Socket, config);
+    }
+
+    await authenticateSmtp(socket, config);
+
+    sendCommand(socket, `MAIL FROM:<${config.user}>`);
     assertStatus(await waitForResponse(socket), [250]);
 
-    await authenticateSmtp(socket, user, pass);
-
-    sendCommand(socket, `MAIL FROM:<${mailFromAddress}>`);
-    assertStatus(await waitForResponse(socket), [250]);
-
-    sendCommand(socket, `RCPT TO:<${rcptToAddress}>`);
+    sendCommand(socket, `RCPT TO:<${config.toEmail}>`);
     assertStatus(await waitForResponse(socket), [250, 251]);
 
     sendCommand(socket, 'DATA');
@@ -232,8 +299,8 @@ async function sendSmtpMail(values: ContactFormValues) {
 
     const boundary = `portfolio-${Date.now()}`;
     const mimeData = [
-      `From: ${fromEmail}`,
-      `To: ${toEmail}`,
+      `From: ${config.fromEmail}`,
+      `To: ${config.toEmail}`,
       `Reply-To: ${values.email}`,
       `Subject: [Portfolio Contact] ${values.subject}`,
       'MIME-Version: 1.0',
@@ -257,10 +324,47 @@ async function sendSmtpMail(values: ContactFormValues) {
     assertStatus(await waitForResponse(socket), [250]);
 
     sendCommand(socket, 'QUIT');
-    assertStatus(await waitForResponse(socket), [221]);
+    await waitForResponse(socket);
   } finally {
-    socket.end();
+    rawSocket.end();
   }
+}
+
+function toPublicError(error: unknown) {
+  if (!(error instanceof Error)) {
+    return {
+      status: 502,
+      message: 'Unable to send your message right now. Please try again shortly.'
+    };
+  }
+
+  const lowered = error.message.toLowerCase();
+
+  if (lowered.includes('not configured') || lowered.includes('smtp_port')) {
+    return {
+      status: 500,
+      message: 'Server email settings are incomplete. Please contact the site owner.'
+    };
+  }
+
+  if (lowered.includes('authentication failed')) {
+    return {
+      status: 502,
+      message: 'SMTP authentication failed. Use your Gmail address and a 16-digit App Password.'
+    };
+  }
+
+  if (lowered.includes('timed out') || lowered.includes('econnrefused') || lowered.includes('enotfound')) {
+    return {
+      status: 502,
+      message: 'Unable to reach the SMTP server. Please try again later.'
+    };
+  }
+
+  return {
+    status: 502,
+    message: 'Unable to send your message right now. Please try again shortly.'
+  };
 }
 
 export async function POST(request: NextRequest) {
@@ -283,15 +387,13 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'Invalid form data. Please check your inputs.' }, { status: 400 });
     }
 
-    await sendSmtpMail(normalized);
+    await sendContactMail(normalized);
 
     return NextResponse.json({ ok: true }, { status: 200 });
   } catch (error) {
+    const publicError = toPublicError(error);
     console.error('Failed to send contact email:', error);
 
-    const message = error instanceof Error ? error.message : 'Unable to send message right now. Please try again later.';
-    const status = message.includes('configured') ? 500 : 502;
-
-    return NextResponse.json({ error: message }, { status });
+    return NextResponse.json({ error: publicError.message }, { status: publicError.status });
   }
 }
