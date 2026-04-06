@@ -1,16 +1,55 @@
+'use client';
+
+import { useEffect, useMemo, useState } from 'react';
 import { BackToTopButton } from '@/components/BackToTopButton';
 import { ContactForm } from '@/components/ContactForm';
 import { GithubIcon, LinkedInIcon } from '@/components/icons';
 import { Navbar } from '@/components/Navbar';
 import { SectionHeading } from '@/components/SectionHeading';
+import { translations, type Locale, type Theme } from '@/data/i18n';
 import { projects, siteConfig, skills, timeline } from '@/data/siteData';
 
 const sectionClass = 'section-shell py-20 sm:py-24';
 
 export default function Home() {
+  const [locale, setLocale] = useState<Locale>('en');
+  const [theme, setTheme] = useState<Theme>('dark');
+
+  useEffect(() => {
+    const storedLocale = window.localStorage.getItem('portfolio-locale') as Locale | null;
+    const storedTheme = window.localStorage.getItem('portfolio-theme') as Theme | null;
+
+    if (storedLocale === 'en' || storedLocale === 'tr') {
+      setLocale(storedLocale);
+    }
+
+    if (storedTheme === 'dark' || storedTheme === 'light') {
+      setTheme(storedTheme);
+      document.documentElement.dataset.theme = storedTheme;
+    } else {
+      document.documentElement.dataset.theme = 'dark';
+    }
+  }, []);
+
+  useEffect(() => {
+    window.localStorage.setItem('portfolio-locale', locale);
+  }, [locale]);
+
+  useEffect(() => {
+    window.localStorage.setItem('portfolio-theme', theme);
+    document.documentElement.dataset.theme = theme;
+  }, [theme]);
+
+  const copy = useMemo(() => translations[locale], [locale]);
+
   return (
     <>
-      <Navbar />
+      <Navbar
+        locale={locale}
+        onLocaleToggle={() => setLocale((prev) => (prev === 'en' ? 'tr' : 'en'))}
+        theme={theme}
+        onThemeToggle={() => setTheme((prev) => (prev === 'dark' ? 'light' : 'dark'))}
+      />
       <main id="home" className="relative overflow-x-clip pt-16">
         <div
           aria-hidden="true"
@@ -24,7 +63,7 @@ export default function Home() {
         <section className={`${sectionClass} pb-24 pt-24 sm:pb-28 sm:pt-32`}>
           <div className="max-w-4xl space-y-8">
             <p className="inline-flex rounded-full border border-slate-700 bg-slate-900/80 px-3 py-1 text-xs font-medium uppercase tracking-[0.2em] text-slate-300">
-              Available for internships & collaboration
+              {copy.hero.badge}
             </p>
             <h1 className="text-4xl font-bold leading-tight text-slate-50 sm:text-6xl">
               {siteConfig.name}
@@ -34,38 +73,38 @@ export default function Home() {
 
             <div className="flex flex-wrap gap-3">
               <a href="#projects" className="rounded-xl bg-brand-500 px-5 py-3 text-sm font-semibold text-white shadow-glow transition hover:bg-brand-400">
-                View Projects
+                {copy.hero.viewProjects}
               </a>
               <a href="#contact" className="rounded-xl border border-slate-700 px-5 py-3 text-sm font-semibold text-slate-100 transition hover:border-slate-500">
-                Contact Me
+                {copy.hero.contactMe}
               </a>
               <a
                 href={siteConfig.cvLink}
                 className="rounded-xl border border-slate-700 px-5 py-3 text-sm font-semibold text-slate-100 transition hover:border-slate-500"
               >
-                Download CV
+                {copy.hero.downloadCv}
               </a>
             </div>
           </div>
         </section>
 
         <section id="about" className={sectionClass}>
-          <SectionHeading eyebrow="About" title="Building robust software with a backend-first mindset" />
+          <SectionHeading eyebrow={copy.sections.aboutEyebrow} title={copy.sections.aboutTitle} />
           <div className="card grid gap-6 p-6 sm:p-8">
             {siteConfig.bio.map((paragraph) => (
               <p key={paragraph} className="text-slate-300">
                 {paragraph}
               </p>
             ))}
-            <p className="text-sm text-slate-400">Location: {siteConfig.location}</p>
+            <p className="text-sm text-slate-400">{copy.misc.location}: {siteConfig.location}</p>
           </div>
         </section>
 
         <section id="skills" className={sectionClass}>
           <SectionHeading
-            eyebrow="Skills"
-            title="Technical strengths"
-            description="I focus on practical engineering capabilities that help build, deploy, and maintain backend software systems effectively."
+            eyebrow={copy.sections.skillsEyebrow}
+            title={copy.sections.skillsTitle}
+            description={copy.sections.skillsDescription}
           />
           <div className="grid gap-4 md:grid-cols-2">
             {skills.map((skillGroup) => (
@@ -85,9 +124,9 @@ export default function Home() {
 
         <section id="projects" className={sectionClass}>
           <SectionHeading
-            eyebrow="Projects"
-            title="Selected software projects"
-            description="This section uses a structured data source for easy edits. Replace links, titles, and descriptions with your real work anytime."
+            eyebrow={copy.sections.projectsEyebrow}
+            title={copy.sections.projectsTitle}
+            description={copy.sections.projectsDescription}
           />
           {projects.length ? (
             <div className="grid gap-5 md:grid-cols-2">
@@ -108,25 +147,25 @@ export default function Home() {
                     </a>
                     {project.demo ? (
                       <a href={project.demo} className="font-medium text-slate-300 transition hover:text-slate-100">
-                        Live Demo ↗
+                        {copy.misc.liveDemo}
                       </a>
                     ) : (
-                      <span className="text-slate-500">Live Demo unavailable</span>
+                      <span className="text-slate-500">{copy.misc.liveDemoUnavailable}</span>
                     )}
                   </div>
                 </article>
               ))}
             </div>
           ) : (
-            <div className="card p-6 text-slate-300">Projects will appear here once added to the projects data file.</div>
+            <div className="card p-6 text-slate-300">{copy.sections.projectsEmpty}</div>
           )}
         </section>
 
         <section id="experience" className={sectionClass}>
           <SectionHeading
-            eyebrow="Experience & Education"
-            title="Professional timeline"
-            description="A concise view of education and practical experience across internships, freelance work, and backend-focused projects."
+            eyebrow={copy.sections.experienceEyebrow}
+            title={copy.sections.experienceTitle}
+            description={copy.sections.experienceDescription}
           />
           <div className="relative ml-3 border-l border-slate-800 pl-8">
             {timeline.map((entry) => (
@@ -147,9 +186,9 @@ export default function Home() {
 
         <section id="contact" className={sectionClass}>
           <SectionHeading
-            eyebrow="Contact"
-            title="Let’s build something meaningful"
-            description="If you are looking for a backend-focused developer for internships, project work, or collaborations, feel free to reach out."
+            eyebrow={copy.sections.contactEyebrow}
+            title={copy.sections.contactTitle}
+            description={copy.sections.contactDescription}
           />
           <div className="grid gap-6 lg:grid-cols-[1.1fr_1fr]">
             <aside className="card space-y-5 p-6">
@@ -160,7 +199,7 @@ export default function Home() {
                 </a>
               </div>
               <div>
-                <p className="text-sm uppercase tracking-[0.18em] text-slate-400">Professional Links</p>
+                <p className="text-sm uppercase tracking-[0.18em] text-slate-400">{copy.misc.professionalLinks}</p>
                 <div className="mt-3 flex items-center gap-4">
                   <a
                     href={siteConfig.socialLinks.github}
@@ -178,12 +217,10 @@ export default function Home() {
                   </a>
                 </div>
               </div>
-              <p className="text-sm text-slate-400">
-                Prefer direct communication? Email me with your role, context, and timelines, and I will get back to you promptly.
-              </p>
+              <p className="text-sm text-slate-400">{copy.misc.directCommunication}</p>
             </aside>
             <div className="card p-6">
-              <ContactForm />
+              <ContactForm locale={locale} />
             </div>
           </div>
         </section>
@@ -192,11 +229,11 @@ export default function Home() {
       <footer className="border-t border-slate-800 py-8">
         <div className="section-shell flex flex-col gap-4 text-sm text-slate-400 sm:flex-row sm:items-center sm:justify-between">
           <p>© {new Date().getFullYear()} {siteConfig.name}. All rights reserved.</p>
-          <p>Designed with a clean backend-focused portfolio style.</p>
+          <p>{copy.misc.footer}</p>
         </div>
       </footer>
 
-      <BackToTopButton />
+      <BackToTopButton label={copy.misc.backToTop} />
     </>
   );
 }

@@ -11,6 +11,14 @@ body {
   @apply bg-slate-950 text-slate-100 antialiased;
 }
 
+[data-theme='light'] {
+  color-scheme: light;
+}
+
+[data-theme='light'] body {
+  @apply bg-slate-100 text-slate-900;
+}
+
 ::selection {
   @apply bg-brand-500/40;
 }
@@ -25,4 +33,47 @@ body {
 
 .card:hover {
   @apply border-slate-700;
+}
+
+[data-theme='light'] .card {
+  @apply border-slate-300 bg-white/90;
+}
+
+[data-theme='light'] .border-slate-800,
+[data-theme='light'] .border-slate-800\/70 {
+  @apply border-slate-300;
+}
+
+[data-theme='light'] .border-slate-700 {
+  @apply border-slate-300;
+}
+
+[data-theme='light'] .bg-slate-950,
+[data-theme='light'] .bg-slate-950\/80 {
+  @apply bg-white/95;
+}
+
+[data-theme='light'] .bg-slate-900,
+[data-theme='light'] .bg-slate-900\/80,
+[data-theme='light'] .bg-slate-900\/60 {
+  @apply bg-white;
+}
+
+[data-theme='light'] .bg-slate-800,
+[data-theme='light'] .bg-slate-800\/60 {
+  @apply bg-slate-100;
+}
+
+[data-theme='light'] .text-slate-50,
+[data-theme='light'] .text-slate-100,
+[data-theme='light'] .text-slate-200 {
+  @apply text-slate-900;
+}
+
+[data-theme='light'] .text-slate-300 {
+  @apply text-slate-700;
+}
+
+[data-theme='light'] .text-slate-400 {
+  @apply text-slate-600;
 }

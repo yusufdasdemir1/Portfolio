@@ -3,19 +3,21 @@
 import Link from 'next/link';
 import { useEffect, useMemo, useState } from 'react';
 import { siteConfig } from '@/data/siteData';
+import { translations, type Locale, type Theme } from '@/data/i18n';
 
-const navItems = [
-  { id: 'home', label: 'Home' },
-  { id: 'about', label: 'About' },
-  { id: 'skills', label: 'Skills' },
-  { id: 'projects', label: 'Projects' },
-  { id: 'experience', label: 'Experience' },
-  { id: 'contact', label: 'Contact' }
-];
+const navItems = ['home', 'about', 'skills', 'projects', 'experience', 'contact'] as const;
 
-export function Navbar() {
+type NavbarProps = {
+  locale: Locale;
+  onLocaleToggle: () => void;
+  theme: Theme;
+  onThemeToggle: () => void;
+};
+
+export function Navbar({ locale, onLocaleToggle, theme, onThemeToggle }: NavbarProps) {
   const [mobileOpen, setMobileOpen] = useState(false);
   const [activeSection, setActiveSection] = useState('home');
+  const copy = translations[locale];
 
   const observerOptions = useMemo(
     () => ({ root: null, rootMargin: '-40% 0px -45% 0px', threshold: 0.01 }),
@@ -24,7 +26,7 @@ export function Navbar() {
 
   useEffect(() => {
     const sections = navItems
-      .map((item) => document.getElementById(item.id))
+      .map((item) => document.getElementById(item))
       .filter((section): section is HTMLElement => Boolean(section));
 
     const observer = new IntersectionObserver((entries) => {
@@ -55,10 +57,26 @@ export function Navbar() {
 
         <div className="hidden items-center gap-3 md:flex">
           {navItems.map((item) => (
-            <a key={item.id} href={`#${item.id}`} className={linkClass(item.id)}>
-              {item.label}
+            <a key={item} href={`#${item}`} className={linkClass(item)}>
+              {copy.nav[item]}
             </a>
           ))}
+          <button
+            type="button"
+            onClick={onLocaleToggle}
+            aria-label={copy.controls.languageLabel}
+            className="rounded-full border border-slate-700 px-3 py-2 text-sm font-semibold text-slate-200 transition hover:border-blue-400 hover:text-blue-200"
+          >
+            {copy.controls.language}
+          </button>
+          <button
+            type="button"
+            onClick={onThemeToggle}
+            aria-label={copy.controls.themeLabel}
+            className="rounded-full border border-slate-700 px-3 py-2 text-sm font-semibold text-slate-200 transition hover:border-blue-400 hover:text-blue-200"
+          >
+            {theme === 'dark' ? copy.controls.theme : copy.controls.darkTheme}
+          </button>
         </div>
 
         <button
@@ -82,14 +100,30 @@ export function Navbar() {
           <div className="section-shell grid gap-1 py-3">
             {navItems.map((item) => (
               <a
-                key={item.id}
-                href={`#${item.id}`}
+                key={item}
+                href={`#${item}`}
                 onClick={() => setMobileOpen(false)}
-                className={linkClass(item.id)}
+                className={linkClass(item)}
               >
-                {item.label}
+                {copy.nav[item]}
               </a>
             ))}
+            <div className="mt-2 grid grid-cols-2 gap-2">
+              <button
+                type="button"
+                onClick={onLocaleToggle}
+                className="rounded-full border border-slate-700 px-3 py-2 text-sm font-semibold text-slate-200 transition hover:border-blue-400 hover:text-blue-200"
+              >
+                {copy.controls.language}
+              </button>
+              <button
+                type="button"
+                onClick={onThemeToggle}
+                className="rounded-full border border-slate-700 px-3 py-2 text-sm font-semibold text-slate-200 transition hover:border-blue-400 hover:text-blue-200"
+              >
+                {theme === 'dark' ? copy.controls.theme : copy.controls.darkTheme}
+              </button>
+            </div>
           </div>
         </div>
       )}
