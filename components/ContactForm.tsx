@@ -2,50 +2,80 @@
 
 import { FormEvent, useMemo, useState } from 'react';
 
-const initialValues = {
+import { ContactFormValues, validateContactForm } from '@/lib/contact';
+
+type FormStatus =
+  | { type: 'idle' }
+  | { type: 'success'; message: string }
+  | { type: 'error'; message: string };
+
+const initialValues: ContactFormValues = {
   name: '',
   email: '',
-  message: ''
+  subject: '',
+  message: '',
+  company: ''
 };
 
 export function ContactForm() {
   const [formValues, setFormValues] = useState(initialValues);
   const [submitted, setSubmitted] = useState(false);
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [status, setStatus] = useState<FormStatus>({ type: 'idle' });
 
-  const errors = useMemo(() => {
-    const nextErrors: Partial<typeof initialValues> = {};
+  const fieldErrors = useMemo(() => validateContactForm(formValues), [formValues]);
 
-    if (formValues.name.trim().length < 2) {
-      nextErrors.name = 'Please enter your full name.';
-    }
+  const hasErrors = Object.keys(fieldErrors).length > 0;
 
-    const emailPattern = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-    if (!emailPattern.test(formValues.email)) {
-      nextErrors.email = 'Please enter a valid email address.';
-    }
-
-    if (formValues.message.trim().length < 15) {
-      nextErrors.message = 'Please write at least 15 characters.';
-    }
-
-    return nextErrors;
-  }, [formValues]);
-
-  const hasErrors = Object.keys(errors).length > 0;
-
-  const onSubmit = (event: FormEvent<HTMLFormElement>) => {
+  const onSubmit = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
     setSubmitted(true);
+    setStatus({ type: 'idle' });
 
-    if (!hasErrors) {
-      window.alert('Thanks! This is a UI-only form. Connect it to your backend or form service.');
+    if (hasErrors) {
+      return;
+    }
+
+    setIsSubmitting(true);
+
+    try {
+      const response = await fetch('/api/contact', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify(formValues)
+      });
+
+      if (!response.ok) {
+        const payload = (await response.json()) as { error?: string };
+        throw new Error(payload.error ?? 'Something went wrong while sending your message.');
+      }
+
+      setStatus({ type: 'success', message: 'Message sent successfully. I will get back to you soon.' });
       setFormValues(initialValues);
       setSubmitted(false);
+    } catch (error) {
+      const message = error instanceof Error ? error.message : 'Something went wrong while sending your message.';
+      setStatus({ type: 'error', message });
+    } finally {
+      setIsSubmitting(false);
     }
   };
 
   return (
     <form className="space-y-4" noValidate onSubmit={onSubmit}>
+      <input
+        aria-hidden="true"
+        tabIndex={-1}
+        autoComplete="off"
+        type="text"
+        name="company"
+        value={formValues.company}
+        onChange={(event) => setFormValues((prev) => ({ ...prev, company: event.target.value }))}
+        className="hidden"
+      />
+
       <div>
         <label htmlFor="name" className="mb-2 block text-sm text-slate-200">
           Name
@@ -58,7 +88,7 @@ export function ContactForm() {
           className="w-full rounded-xl border border-slate-700 bg-slate-900 px-4 py-2.5 text-slate-50 outline-none transition focus:border-brand-400"
           placeholder="Your full name"
         />
-        {submitted && errors.name ? <p className="mt-1 text-sm text-rose-300">{errors.name}</p> : null}
+        {submitted && fieldErrors.name ? <p className="mt-1 text-sm text-rose-300">{fieldErrors.name}</p> : null}
       </div>
 
       <div>
@@ -74,7 +104,22 @@ export function ContactForm() {
           className="w-full rounded-xl border border-slate-700 bg-slate-900 px-4 py-2.5 text-slate-50 outline-none transition focus:border-brand-400"
           placeholder="you@example.com"
         />
-        {submitted && errors.email ? <p className="mt-1 text-sm text-rose-300">{errors.email}</p> : null}
+        {submitted && fieldErrors.email ? <p className="mt-1 text-sm text-rose-300">{fieldErrors.email}</p> : null}
+      </div>
+
+      <div>
+        <label htmlFor="subject" className="mb-2 block text-sm text-slate-200">
+          Subject
+        </label>
+        <input
+          id="subject"
+          name="subject"
+          value={formValues.subject}
+          onChange={(event) => setFormValues((prev) => ({ ...prev, subject: event.target.value }))}
+          className="w-full rounded-xl border border-slate-700 bg-slate-900 px-4 py-2.5 text-slate-50 outline-none transition focus:border-brand-400"
+          placeholder="How can I help you?"
+        />
+        {submitted && fieldErrors.subject ? <p className="mt-1 text-sm text-rose-300">{fieldErrors.subject}</p> : null}
       </div>
 
       <div>
@@ -90,16 +135,20 @@ export function ContactForm() {
           className="w-full rounded-xl border border-slate-700 bg-slate-900 px-4 py-2.5 text-slate-50 outline-none transition focus:border-brand-400"
           placeholder="Tell me about your project, role, or collaboration idea..."
         />
-        {submitted && errors.message ? <p className="mt-1 text-sm text-rose-300">{errors.message}</p> : null}
+        {submitted && fieldErrors.message ? <p className="mt-1 text-sm text-rose-300">{fieldErrors.message}</p> : null}
       </div>
 
       <button
         type="submit"
-        className="w-full rounded-xl bg-brand-500 px-5 py-3 text-sm font-semibold text-white shadow-glow transition hover:bg-brand-400"
+        disabled={isSubmitting}
+        className="w-full rounded-xl bg-brand-500 px-5 py-3 text-sm font-semibold text-white shadow-glow transition hover:bg-brand-400 disabled:cursor-not-allowed disabled:opacity-70"
       >
-        Send Message
+        {isSubmitting ? 'Sending...' : 'Send Message'}
       </button>
-      <p className="text-xs text-slate-400">Form validation is active. Connect this to Formspree, Resend, or a custom API route to enable delivery.</p>
+
+      {status.type === 'success' ? <p className="text-sm text-emerald-300">{status.message}</p> : null}
+      {status.type === 'error' ? <p className="text-sm text-rose-300">{status.message}</p> : null}
+      <p className="text-xs text-slate-400">This form is protected with server-side validation, a honeypot field, and basic rate limiting.</p>
     </form>
   );
 }
