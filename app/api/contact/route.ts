@@ -125,18 +125,46 @@ function waitForResponse(socket: tls.TLSSocket) {
   });
 }
 
+function getLastStatusCode(response: string) {
+  const lines = response.split(/\r?\n/).filter(Boolean);
+  const lastLine = lines.at(-1) ?? '';
+
+  return Number(lastLine.slice(0, 3));
+}
+
 function assertStatus(response: string, expectedCodes: number[]) {
   const lines = response.split(/\r?\n/).filter(Boolean);
   const lastLine = lines.at(-1) ?? '';
   const code = Number(lastLine.slice(0, 3));
 
   if (!expectedCodes.includes(code)) {
-    if (code == 535) {
+    if (code === 535) {
       throw new Error('SMTP authentication failed. Use your Gmail address and a 16-digit App Password.');
     }
 
     throw new Error(`SMTP error: ${lastLine || response}`);
   }
+}
+
+async function authenticateSmtp(socket: tls.TLSSocket, user: string, pass: string) {
+  const plainToken = toBase64(`\u0000${user}\u0000${pass}`);
+
+  sendCommand(socket, `AUTH PLAIN ${plainToken}`);
+  const plainResponse = await waitForResponse(socket);
+  const plainCode = getLastStatusCode(plainResponse);
+
+  if (plainCode === 235) {
+    return;
+  }
+
+  sendCommand(socket, 'AUTH LOGIN');
+  assertStatus(await waitForResponse(socket), [334]);
+
+  sendCommand(socket, toBase64(user));
+  assertStatus(await waitForResponse(socket), [334]);
+
+  sendCommand(socket, toBase64(pass));
+  assertStatus(await waitForResponse(socket), [235]);
 }
 
 async function sendSmtpMail(values: ContactFormValues) {
@@ -174,14 +202,7 @@ async function sendSmtpMail(values: ContactFormValues) {
     sendCommand(socket, `EHLO ${host}`);
     assertStatus(await waitForResponse(socket), [250]);
 
-    sendCommand(socket, 'AUTH LOGIN');
-    assertStatus(await waitForResponse(socket), [334]);
-
-    sendCommand(socket, toBase64(user));
-    assertStatus(await waitForResponse(socket), [334]);
-
-    sendCommand(socket, toBase64(pass));
-    assertStatus(await waitForResponse(socket), [235]);
+    await authenticateSmtp(socket, user, pass);
 
     sendCommand(socket, `MAIL FROM:<${mailFromAddress}>`);
     assertStatus(await waitForResponse(socket), [250]);
